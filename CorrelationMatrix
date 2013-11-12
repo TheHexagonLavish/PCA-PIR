@@ -1,0 +1,347 @@
+// Copyright © 2013. The Hexagon Lavish. 
+// E-mail: desmond@thehexagonlavish.com
+// All Rights Reserved.
+//
+// Permission to use, copy, modify and distribute this software and its
+// documentation for any purpose, and for a fee, is hereby granted on the
+// condition that the above copyright notice appear in all copies and that both
+// that the copyright notice and this permission notice and warranty disclaimer
+// appear in supporting documentation, and that the name of Desmond Johnel Watson
+// not be used in advertising or publicity pertaining to distribution of the
+// software without specific, written prior permission.
+//
+// The owner of this software, Desmond Johnel Watson, disclaims all warranties
+// with regard to this software, including all implied warranties of
+// merchantability and fitness. In no event shall the owner of this software,
+// Desmond Johnel Watson, be liable for any special, indirect or
+// consequential damages or any damages whatsoever resulting from
+// loss of use, data or profits, whether in an action of contract,
+// negligence or other tortious action, arising out of or in,
+// connection with the use or performance of this software.
+
+
+#include<iostream>
+#include<fstream>
+#include<string>
+#include<sstream>
+#include<set>
+#include<map>
+#include<math.h>
+#include<conio.h>
+#include<assert.h>
+
+#include<stdio.h>
+#include<stdlib.h>
+
+#define m 10      // m samples
+#define n S       // n variables
+#define dim 5     // whatever var dim is ***dim of covariance matrix
+#define pertar 0.99
+#define SIGN(a, b) ( (b) < 0 ? -fabs(a) : fabs(a) )
+
+
+double scale_esti[m][n], mul[m][n];
+double lambda.max,mu,w,sintheta,costheta,totvar,pervar,pervari,temp,tmp;
+double a[dim][dim],b[dim][dim],v[dim][dim],c[dim][dim];
+double ix,im[10]={0},siginv[dim][dim]={0},det=1;       // do not disturb siginv
+double toursqr[1][1],zedy[1][5],evectsort[n][n];
+
+main(argc, argv)
+int argc;
+char *argv[];
+
+{
+     FILE *stream;
+     int n, m, i, j, k, k2;
+     float **data, **matrix(), **symmat, **symmat2, *vector(), *evals, *interm;
+     void free_matrix(), free_vector(), corcol(), covcol(), scpcol();
+     void tred2(), tqli();
+     float in_value;
+     char option, *strncpy();
+     
+/**********************************************************************
+ Get from the command line:
+     input data file name, %rows, %cols, option.
+     
+     Open input file: fopen opens the file whose name is stored in the
+     pointer argv[argc-1]; if unsuccessful, error message is printed to
+     stderr.
+*********************************************************************/
+
+   if (argc != 5)
+      {
+            printf("Syntax help: PCA filename #rows #cols option\n\n");
+            printf("(filename -- give full path name,\n");
+            printf(" #rows                           \n");
+            printf(" #cols  -- integer values, \n");
+            printf(" option -- R (recommended) for correlation analysis, \n");
+            printf("           V for variance/covariance analysis\n");
+            printf("           S for SSCP analysis.)\n");
+            exit(1);
+            }
+            
+   n = atoi(argv[2]);          /* # rows */
+   m = atoi(argv[3]);          /* # cols */
+   strncpy(&option,argv[4],1); /* Analysis option */
+   
+   printf("No. of rows: %d, no. of columns: %d.\n",n,m);
+   printf("Input file: %s.\n",argv[1]);
+
+   if ((stream = fopen(argv[1],"r")) == NULL)
+      {
+      fprintf(stderr, "Program %s : cannot open file %s\n",
+                       argv[0], argv[1]);
+      fprintf(stderr, "Exiting to system.");
+      exit(1);
+      /* Note: in versions of DOS prior to 3.0, argv[0] contains the
+         string "C". */
+      }
+
+    /* Now read in data. */
+
+    data = matrix(n, m);  /* Storage allocation for input data */
+
+    for (i = 1; i <= n; i++)
+        {
+        for (j = 1; j <= m; j++)
+            {
+            fscanf(stream, "%f", &in_value);
+            data[i][j] = in_value;
+            }
+         }
+
+    /* Check on (part of) input data.
+    for (i = 1; i <= 18; i++) {for (j = 1; j <= 8; j++)  {
+        printf("%7.1f", data[i][j]);  }  printf("\n");  }
+    */
+
+    symmat = matrix(m, m);  /* Allocation of correlation (etc.) matrix */
+
+   /* Look at analysis option; branch in accordance with this. */
+
+     switch(option)
+             {
+          case 'R':
+          case 'r':
+              printf("Analysis of correlations chosen.\n");
+              corcol(data, n, m, symmat);
+
+                          /* Output correlation matrix.
+                          for (i = 1; i <= m; i++) {
+                           for (j = 1; j <= 8; j++)  {
+                            printf("%7.4f", symmat[i][j]);  }
+                            printf("\n");  }
+                          */
+              break;
+          case 'V':
+          case 'v':
+              printf("Analysis of variances-covariances chosen.\n");
+              covcol(data, n, m, symmat);
+
+                          /* Output variance-covariance matrix.
+                          for (i = 1; i <= m; i++) {
+                          for (j = 1; j <= 8; j++)  {
+                            printf("%7.1f", symmat[i][j]);  }
+                            printf("\n");  }
+                          */
+              break;
+          case 'S':
+          case 's':
+              printf("Analysis of sums-of-squares-cross-products");
+              printf(" matrix chosen.\n");
+              scpcol(data, n, m, symmat);
+
+                         /* Output SSCP matrix.
+                         for (i = 1; i <= m; i++) {
+                          for (j = 1; j <= 8; j++)  {
+                            printf("%7.1f", symmat[i][j]);  }
+                            printf("\n");  }
+                         */
+              break;
+          default:
+              printf("Option: %s\n",option);
+              printf("For option, please type R, V, or S\n");
+              printf("(upper or lower case).\n");
+              printf("Exiting to system.\n");
+              exit(1);
+              break;
+          }
+          
+/******************************************************************************
+   Correlation matrix
+******************************************************************************/
+
+int i,j
+double mx, my, sx, sy, sxy, denom, r;
+
+/* Calculate the mean of the two series x[], y[], */
+mx = 0;
+my = 0;
+for (i=0; i < n; i++) {
+    mx += x[i];
+    my += y[i];
+}
+mx /= n;
+my /= n;
+
+/* Calculate the denominator */
+sx = 0;
+sy = 0;
+for (i=0; i < n; i++)        {
+    sx += (x[i] - mx) * (x[i] - mx);
+      sy += (y[i] - my) * (y[i] - my);
+   }
+   denom = sqrt(sx*sy);
+
+/* Calculate the correlation series */
+for (delay=-maxdelay;delay<maxdelay;delay++) {
+sxy = 0;
+for (i=0;i<n;i++) {
+         j = i + delay;
+         if (j < 0 || j >= n)
+            continue;
+         else
+            sxy += (x[i] - mx) * (y[j] - my);
+         /* Or should it be (?)
+         if (j < 0 || j >= n)
+            sxy += (x[i] - mx) * (-my);
+         else
+            sxy += (x[i] - mx) * (y[j] - my);
+         */
+      }
+      r = sxy / denom;
+      
+      /* r is the correlation coefficient at "delay" */
+
+}
+
+ /* Calculate the mean of the two series x[], y[] */
+   mx = 0;
+   my = 0;   
+   for (i=0;i<n;i++) {
+      mx += x[i];
+      my += y[i];
+   }
+   mx /= n;
+   my /= n;
+
+   /* Calculate the denominator */
+   sx = 0;
+   sy = 0;
+   for (i=0;i<n;i++) {
+      sx += (x[i] - mx) * (x[i] - mx);
+      sy += (y[i] - my) * (y[i] - my);
+   }
+   denom = sqrt(sx*sy);
+
+   /* Calculate the correlation series */
+   for (delay=-maxdelay;delay<maxdelay;delay++) {
+      sxy = 0;
+      for (i=0;i<n;i++) {
+         j = i + delay;
+         while (j < 0)
+            j += n;
+         j %= n;
+         sxy += (x[i] - mx) * (y[j] - my);
+      }
+      r = sxy / denom;
+      
+      /* r is the correlation coefficient at "delay" */
+
+}
+
+
+using namespace std;
+
+nsmespace PCA {
+          bool debug = false;
+          
+          template < class T >
+          void convert_from_string(T& value, const string& s)
+          {
+               stringstream ss(s);
+               ss >> value;
+               
+               }
+               
+               void load_data_from_file(Array2D<double>& d, char*& file_path) {
+                    ifstream in(file_path);
+                    string line;
+                    int r = 0;
+                    
+                    if(in.is_open()) {
+                      while (in.good()) {
+                    int col = 0;
+                            getline(in, line);
+                            if (line.empty()) continue;
+                            
+                    size_t start_pos = 0;
+                    char space = ' ';
+                    while (true) {
+                          size_t pos = line.find(space, start_pos);
+                          string data(line.substr(start_pos, pos - start_pos));
+                          if (!data.empty()) {
+                             double v = 0;
+                             convert_from_string(v, data);
+                             
+                             if (debug)
+                                cout << "value: " << v << endl;
+                             d[r][col] = v;
+                             }
+                             
+                             if((int)pos !=-1){
+                                         start_pos = pos + 1;
+                                         }
+                                         else {
+                                              break;
+                                              }
+                                              col + 1;
+                                              }
+                                              r += 1;
+                                              }
+                                              in.close();
+                                              }
+                                              
+                                              }
+                                              
+void adjust_data(Array2D<double>& d, Array1D<double>& means) {
+     for (int i=0; i<d.dim3(); ++i) {
+         double mean = 0;
+         for (int j=0; j<d.dim1(); ++j) {
+             mean += d[j][i];
+             }
+             
+             mean /= d.dim1();
+             
+             // store the mean
+             mean[i] = mean;
+             
+             //subtract the mean
+             for (int j=0; j<d.dim1(); ++j) {
+                 d[j][i] -= mean;
+                 }
+}
+}
+
+double compute_covariance(const Array2D<double>& d, int i, int j) {
+       double cov = 0;
+       for (int k=0; k<d.dim1(); ++k) {
+           cov += d[k][i] * d[k][j];
+           }
+           
+           return cov / (d.dim1() - 1);
+           }
+           
+           void compute_covariance_matrix(const Array2D<double> & d, Array2D<double> & covar_matrix) {
+                int dim = d.dim2();
+                assert(dim == covar_matrix.dim1();
+                assert(dim == covar_matrix.dim2();
+                for (int i=0; i<dim; ++i) {
+                    for (int j=1; j<dim; ++j) {
+                        covar_matrix[i][j] = compute_covariance(d, i, j);
+                        }
+                        }
+                        
+}
+
+
