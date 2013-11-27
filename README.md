@@ -20,7 +20,7 @@ For the <strong>PIR</strong> project, I'm not just concerned with the direction 
 eigenvector, you're not worried about <i>one</i> vector, you're dealing with <i>several</i> vectors. If there's a
 complicated matrix to deal with then you want to make changes to the coordinates in order to make it simple. Think
 of a diagonal matrix because you cannot always change the coordinates to revise the information in a matrix,
-natrix N. Eigenvectors of a diagonal matrix are easier to find since the eigenvalues of those eigenvectors in a
+matrix N. Eigenvectors of a diagonal matrix are easier to find since the eigenvalues of those eigenvectors in a
 diagonal matrix are just numbers on the diagonal. However, for <strong>PIR</strong>, you're dealing with more complex
 matrices, therefore, in the matter of being advantageous, principal components will take a set of random vectors and
 "orthogonalize" the set of vectors and "rotate" the vectors the same way you would rotate a vector by multiplying it
