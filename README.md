@@ -83,4 +83,4 @@ use or performance of this software.</i>
 ******************************************************************
 
 
-<h3>Copyright © 2013 The Hexagon Lavish. All Rights Reserved.</h3>
+<h3>Copyright © 2013-2014 The Hexagon Lavish. All Rights Reserved.</h3>
